@@ -27,7 +27,7 @@ Choices:
         'answer': train_response_template,
         'options':  list(filter(lambda item: item[0].startswith("option")  ,question.items()))
     }
-    answer = question['answer']
+    answer = question.get("answer", None)
     prompt = prompt_template.invoke(prompt_context).to_string()
     return {'question': prompt,'answer': answer}
 
