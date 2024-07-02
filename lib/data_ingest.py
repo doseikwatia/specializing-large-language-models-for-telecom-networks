@@ -1,12 +1,4 @@
 
-# %%
-import os
-import os.path as osp
-import sys
-
-ROOT_DIR = osp.dirname(os.getcwd())
-sys.path.append(ROOT_DIR)
-# %%
 from lib.documents import load_documents
 from glob import glob
 from langchain_chroma import Chroma

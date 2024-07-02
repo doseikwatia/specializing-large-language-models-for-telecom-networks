@@ -1,0 +1,19 @@
+---
+common: 
+  llm_model: 'microsoft/phi-2'
+  embedding_model: 'all-MiniLM-L6-v2.gguf2.f16.gguf'
+  reranker_model: 'BAAI/bge-reranker-base'
+  vectorstore:
+    path: 'data/vectorstore/chromadb_512_32_all-MiniLM-L6-v2'
+    k : 300
+  compression_retriever_top_n: 9
+  gpt4all_gpu_names : ['NVIDIA GeForce GTX 1080 Ti', 'NVIDIA GeForce GTX 1080 Ti (2)']
+
+data-ingest:
+  textsplitter:
+    chunk_size: 512
+    overlap: 32
+  documents: 
+    path: 'data/rel18'
+    extensions: 
+      - '*.docx'

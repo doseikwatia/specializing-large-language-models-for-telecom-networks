@@ -17,6 +17,7 @@ MAX_STEPS=1024
 BATCH_SIZE=512
 GENERATE_PROMPTS=False
 VECTOR_STORE_PATH = '../data/vectorstore/'
+DEVICE_MAP='auto' #{0:'cuda:1',1:'cuda:2'}
 
 print(f""" 
      LLM_MODEL_NAME={LLM_MODEL_NAME}
@@ -43,6 +44,7 @@ from langchain_community.embeddings import GPT4AllEmbeddings
 from langchain.retrievers.document_compressors import CrossEncoderReranker
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+from lib.normic_wrapper import NomicEmbedding
 from tqdm import tqdm
 
 # %%
@@ -50,11 +52,11 @@ def create_retriever():
     embeddings  = GPT4AllEmbeddings(
     model_name=EMBEDDING_MODEL_NAME,
     device='gpu')
-
+    # embeddings = NomicEmbedding(model_name=EMBEDDING_MODEL_NAME,dimensionality=512,device='gpu')
     vectorstore = Chroma(persist_directory=VECTOR_STORE_PATH+VECTOR_STORE_NAME, embedding_function=embeddings)
 
     retriever = vectorstore.as_retriever(
-        search_type="mmr",
+        search_type="similarity",
         search_kwargs={'k': VECTOR_RETRIEVER_K}
     )
    
@@ -71,7 +73,7 @@ def create_retriever():
 
 # %%
 import json
-from lib.prompt import get_training_prompt
+from lib.prompt import get_mcq_training_prompt, get_qa_training_prompt
 from joblib import Parallel, delayed
 import pickle
 
@@ -90,8 +92,8 @@ def get_prompt(qstn_datas):
         qstn_text = qstn_data['question']
         docs = retriever.invoke(qstn_text)
         context =  (' '.join(list(map(lambda d:d.page_content,docs)))).replace('\n', '. ')
-        prompt = get_training_prompt(qstn_data,context)
-        prompts.append(prompt)
+        prompts  += [get_qa_training_prompt(qstn_data,context), get_mcq_training_prompt(qstn_data,context)]
+
     return prompts
 
 def chunks(container,size):
@@ -117,10 +119,15 @@ else:
 
 # %%
 print(f"""********************************************************************************
-Prompt
+Prompt[0]
 ********************************************************************************
 {finetuning_datalist[0]['prompt']}""")
 
+
+print(f"""********************************************************************************
+Prompt[1]
+********************************************************************************
+{finetuning_datalist[1]['prompt']}""")
 
 # %%
 len(finetuning_datalist)
@@ -179,18 +186,12 @@ tokenized_dataset = finetuning_dataset.map(
 # %%
 tokenized_dataset = tokenized_dataset.add_column("labels", tokenized_dataset["input_ids"])
 
-# %%
-tokenized_dataset
-
-# %%
 split_dataset = tokenized_dataset.train_test_split(test_size=0.1, shuffle=True, seed=123)
+
 print(split_dataset)
 
-# %%
 split_dataset.save_to_disk("../data/finetuning/split_dataset")
 
-# %% [markdown]
-# # Training
 
 # %%
 from transformers import AutoModelForCausalLM
@@ -217,10 +218,10 @@ training_config = {
 # ## Load base model
 
 # %%
-base_model = AutoModelForCausalLM.from_pretrained(LLM_MODEL_NAME,device_map='auto')
+base_model = AutoModelForCausalLM.from_pretrained(LLM_MODEL_NAME,device_map=DEVICE_MAP)
 
 # %%
-base_model
+print(base_model)
 
 # %%
 loftq_config = LoftQConfig(loftq_bits=4)           # set 4bit quantization
@@ -229,7 +230,6 @@ lora_config = LoraConfig(
     loftq_config=loftq_config,
     r=8,
     lora_alpha=8,
-    #target_modules=["q_proj", "k_proj", "v_proj", "dense"],
     lora_dropout=0.05,
     bias="none",
     task_type="CAUSAL_LM",
@@ -249,7 +249,7 @@ training_args = TrainingArguments(
 
   # Max steps to train for (each step is a batch of data)
   # Overrides num_train_epochs, if not -1
-  max_steps=MAX_STEPS,
+#   max_steps=MAX_STEPS,
 
   # Batch size for training
   per_device_train_batch_size=1,
@@ -299,4 +299,4 @@ trainer = SFTTrainer(
 trainer.train()
 # %%
 peft_model = peft_model.merge_and_unload()
-peft_model.save_pretrained('../bin/pretrained_512_32')
+peft_model.save_pretrained('../bin/pretrained_1024_32')
