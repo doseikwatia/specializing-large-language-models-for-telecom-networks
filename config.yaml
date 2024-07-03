@@ -1,6 +1,8 @@
 ---
 common: 
-  llm_model: 'microsoft/phi-2'
+  llm_model: 
+    name: 'microsoft/phi-2'
+    context_length: 2048
   embedding_model: 
     name: 'all-MiniLM-L6-v2.gguf2.f16.gguf'
     kwargs: 
@@ -8,10 +10,16 @@ common:
   reranker_model: 'BAAI/bge-reranker-base'
   vectorstore:
     path: 'data/vectorstore/chromadb_512_32_all-MiniLM-L6-v2'
+    #host and port are only used for ingest
+    host: 'localhost'  
+    port: 8000  
     k : 300
   compression_retriever_top_n: 9
+  trained_model_dir: ''
 
 data-ingest:
+  n_jobs: 24
+  index_chunk: 64
   textsplitter:
     chunk_size: 512
     overlap: 32
@@ -19,3 +27,15 @@ data-ingest:
     path: 'data/rel18/'
     extensions: 
       - '*.docx'
+
+training:
+  epochs: 5
+  n_jobs: 512
+  lora_rank: 16
+  learning_rate: 0.001
+  output_dir: 'bin/'
+  prompt_bin_filename: 'bin/pickle/finetuning_datalist.pkl'
+  data_filename: 'data/TeleQnA_training.txt'
+  dataset_dir: 'data/finetuning/'
+  
+  
