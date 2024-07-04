@@ -18,6 +18,9 @@ def get_retriever(index,
                   vectorstore_port,
                   vectorstore_path,
                   vectorstore_k):
+    '''
+    returns the retriever used in our solution
+    '''
     embedding_model_gpu_names   = gpt4all.GPT4All.list_gpus()
     gpu_index = index%len(embedding_model_gpu_names)
     print(f'using gpu: {gpu_index}')
@@ -49,16 +52,28 @@ def get_retriever(index,
 
 
 def read_json_file(filename):
+    '''
+    reads json file
+    '''
     with open(filename,encoding='UTF-8') as json_file :
         json_data = json.load(json_file)
     return json_data
 
 
 def break_list_into_chunks(container,size):
+    '''
+    Breaks list up into chunks of the size provided. 
+    The last item could have a smaller
+    '''
     for i in range(0, len(container), size):
         yield container[i:i + size]
         
 def flatten_list_of_list(container):
+    '''
+    flattens a list of lists into a single list eg.
+    input [[a,b],[c,d]]
+    output [a,b,c,d]
+    '''
     result = []
     for chunk in container:
         result += chunk

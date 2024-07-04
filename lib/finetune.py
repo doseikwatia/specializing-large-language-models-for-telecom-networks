@@ -1,6 +1,6 @@
 from transformers import AutoTokenizer
 import numpy as np
-from datasets import Dataset
+from datasets import Dataset,DatasetDict
 from tqdm import tqdm
 
 from lib.prompt import get_mcq_training_prompt, get_qa_training_prompt
@@ -78,6 +78,8 @@ def tokenize_dataset(example, tokenizer, max_length):
     return tokenized_input
 
 def build_finetine_prompts(
+                   llm_name:str,
+                   llm_context_length:int,
                    reranker_model,
                    embedding_model_name:str,
                    embedding_model_kwargs:dict,
@@ -88,8 +90,22 @@ def build_finetine_prompts(
                    vectorstore_k:int,
                    training_data_filename:str,
                    prompt_bin_filename:str,
+                   dataset_dir:str,
                    n_jobs:int=4
 ):
+    print(f'''
+reranker_model              = {reranker_model}
+embedding_model_name        = {embedding_model_name}
+embedding_model_kwargs      = {embedding_model_kwargs}
+compression_retriever_top_n = {compression_retriever_top_n}
+vectorstore_host            = {vectorstore_host}
+vectorstore_port            = {vectorstore_port}
+vectorstore_path            = {vectorstore_path}
+vectorstore_k               = {vectorstore_k}
+training_data_filename      = {training_data_filename}
+prompt_bin_filename         = {prompt_bin_filename}
+n_jobs                      = {n_jobs}''')
+
     data = read_json_file(training_data_filename)
     batch_size = int (len(data)/n_jobs) + 1
     prompts_list_of_list = Parallel(n_jobs=n_jobs)(delayed(_get_prompt)(
@@ -108,6 +124,49 @@ def build_finetine_prompts(
     finetuning_datalist = flatten_list_of_list(prompts_list_of_list)
     with open(prompt_bin_filename,'wb') as bin_file:
         pickle.dump(finetuning_datalist,bin_file)
+        
+    tokenizer = AutoTokenizer.from_pretrained(llm_name)
+    tokenizer.pad_token = tokenizer.eos_token
+    
+    with open(prompt_bin_filename,'rb') as bin_file:
+        finetuning_datalist=pickle.load(bin_file)
+
+
+    print(f"""********************************************************************************
+Prompt[0]
+********************************************************************************
+    {finetuning_datalist[0]['prompt']}""")
+
+
+    print(f"""********************************************************************************
+Prompt[1]
+********************************************************************************
+    {finetuning_datalist[3]['prompt']}""")
+
+    training_data_length = len(finetuning_datalist)
+    print(f'Training data length: {training_data_length}')
+
+
+    max_length= _get_max_length(finetuning_datalist, tokenizer,llm_context_length)
+
+    print(f'Maximum token length: {max_length}')
+
+    finetuning_dataset = Dataset.from_list(finetuning_datalist)
+
+    tokenized_dataset = finetuning_dataset.map(
+        lambda e: tokenize_dataset(e,tokenizer, max_length),
+        batched=True,
+        batch_size=1,
+        drop_last_batch=False
+    )
+
+    tokenized_dataset = tokenized_dataset.add_column("labels", tokenized_dataset["input_ids"])
+
+    split_dataset = tokenized_dataset.train_test_split(test_size=0.1, shuffle=True, seed=123)
+
+    print(split_dataset)
+
+    split_dataset.save_to_disk(dataset_dir)
        
 
 def finetune_model(
@@ -130,62 +189,10 @@ final_model_output_dir  = {final_model_output_dir}
 num_train_epochs        = {num_train_epochs}
 lora_rank               = {lora_rank}
 learning_rate           = {learning_rate}''')
+     
     tokenizer = AutoTokenizer.from_pretrained(llm_name)
     tokenizer.pad_token = tokenizer.eos_token
-
-    with open(prompt_bin_filename,'rb') as bin_file:
-        finetuning_datalist=pickle.load(bin_file)
-
-
-    print(f"""********************************************************************************
-    Prompt[0]
-    ********************************************************************************
-    {finetuning_datalist[0]['prompt']}""")
-
-
-    print(f"""********************************************************************************
-    Prompt[1]
-    ********************************************************************************
-    {finetuning_datalist[1]['prompt']}""")
-
-
-    training_data_length = len(finetuning_datalist)
-    print(f'Training data length: {training_data_length}')
-
-
-    max_length= _get_max_length(finetuning_datalist, tokenizer,llm_context_length)
-
-    print(f'Maximum token length: {max_length}')
-
-    finetuning_dataset = Dataset.from_list(finetuning_datalist)
-
-    tokenized_dataset = finetuning_dataset.map(
-        lambda e: tokenize_dataset(e,tokenizer, max_length),
-        batched=True,
-        batch_size=1,
-        drop_last_batch=True
-    )
-
-    tokenized_dataset = tokenized_dataset.add_column("labels", tokenized_dataset["input_ids"])
-
-    split_dataset = tokenized_dataset.train_test_split(test_size=0.1, shuffle=True, seed=123)
-
-    print(split_dataset)
-
-    split_dataset.save_to_disk(dataset_dir)
-
-
-    # training_config = {
-    #     "model": {
-    #         "pretrained_name": llm_name,
-    #         "max_length" : llm_context_length
-    #     },
-    #     "datasets": {
-    #         "use_hf": False,
-    #         "path": dataset_dir
-    #     },
-    #     "verbose": True
-    # }
+    split_dataset = DatasetDict.load_from_disk(dataset_dir)
 
     base_model = AutoModelForCausalLM.from_pretrained(llm_name,device_map='auto')
 
@@ -203,18 +210,19 @@ learning_rate           = {learning_rate}''')
     peft_model = get_peft_model(base_model, lora_config)
     peft_model.print_trainable_parameters()
 
-
+    print('Start training')
+    
     training_args = TrainingArguments(
 
     # Learning rate
     learning_rate=learning_rate,
 
     # Number of training epochs
-    num_train_epochs=num_train_epochs,
+    # num_train_epochs=num_train_epochs,
 
     # Max steps to train for (each step is a batch of data)
     # Overrides num_train_epochs, if not -1
-    #   max_steps=MAX_STEPS,
+    # max_steps=1024,
 
     # Batch size for training
     per_device_train_batch_size=1,
@@ -250,7 +258,7 @@ learning_rate           = {learning_rate}''')
     trainer = SFTTrainer(
         model=peft_model,
         args=training_args,
-        max_seq_length=max_length,
+        max_seq_length=llm_context_length,
         train_dataset=split_dataset['train'],
         eval_dataset=split_dataset['test'],
         data_collator=collator,

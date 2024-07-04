@@ -12,10 +12,10 @@ common:
     path: 'data/vectorstore/chromadb_512_32_all-MiniLM-L6-v2'
     #host and port are only used for ingest
     host: 'localhost'  
-    port: 8000  
-    k : 300
-  compression_retriever_top_n: 9
-  trained_model_dir: ''
+    port: -8000  
+    k : 100
+  compression_retriever_top_n: 2
+  trained_model_dir: 'bin/driver-pretrained/'
 
 data-ingest:
   n_jobs: 24
@@ -29,13 +29,17 @@ data-ingest:
       - '*.docx'
 
 training:
-  epochs: 5
-  n_jobs: 512
+  epochs: 3
+  n_jobs: 4
   lora_rank: 16
   learning_rate: 0.001
   output_dir: 'bin/'
-  prompt_bin_filename: 'bin/pickle/finetuning_datalist.pkl'
+  prompt_bin_filename: 'bin/pickle/driver_finetuning_datalist.pkl'
   data_filename: 'data/TeleQnA_training.txt'
-  dataset_dir: 'data/finetuning/'
+  dataset_dir: 'data/driver-finetuning/'
   
+ inference:
+    task: Phi-2
+    data_filename: 'data/TeleQnA_training.txt'
+    outpu
   

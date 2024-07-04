@@ -13,14 +13,15 @@ def main():
     
     #load-docs subcommand
     parser_load_docs = subparser.add_parser(SUB_COMD_LOAD_DOC)
-    parser_load_docs.add_argument('-c','--config',default='config.yaml',required=True)
+    parser_load_docs.add_argument('-c','--config',default='config.yaml',required=False)
     # parser_load_docs.add_argument('')
     
     # build-finetune-prompt
     parser_build_finetune_prompt = subparser.add_parser(SUB_COMD_BUILD_FINETUNE_PROMPT)
-    
+    parser_build_finetune_prompt.add_argument('-c','--config',default='config.yaml',required=False)
     # fine-tune
     parser_finetune = subparser.add_parser(SUB_COMD_FINE_TUNE)
+    parser_finetune.add_argument('-c','--config',default='config.yaml',required=False)
     
     args = parser.parse_args()
     
@@ -51,9 +52,12 @@ def main():
             vectorstore_port            = config['common']['vectorstore']['port'],
             vectorstore_path            = config['common']['vectorstore']['path'],
             vectorstore_k               = config['common']['vectorstore']['k'],
-            training_data_filename      = config['common']['training_data_filename'],
+            training_data_filename      = config['training']['data_filename'],
             prompt_bin_filename         = config['training']['prompt_bin_filename'],
             n_jobs                      = config['training']['n_jobs'],
+            llm_context_length          = config['common']['llm_model']['context_length'],
+            llm_name                    = config['common']['llm_model']['name'],
+            dataset_dir                 = config['training']['dataset_dir'],
         )
     elif args.subcommand == SUB_COMD_FINE_TUNE:
         finetune_model(
@@ -67,7 +71,9 @@ def main():
             lora_rank                   = config['training']['lora_rank'],
             learning_rate               = config['training']['learning_rate'],
         )
-
+        
+        
+    print('driver exiting')
 
 if __name__ == '__main__':
     main()

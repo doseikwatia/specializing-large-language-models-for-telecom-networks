@@ -9,7 +9,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 from joblib import Parallel, delayed
 import gpt4all
-from lib.utilities import get_vectorstore_client
+from lib.utilities import get_vectorstore_client,break_list_into_chunks,flatten_list_of_list
 
 def split_documents(doc_path, chunk_size, overlap):
     '''
@@ -29,13 +29,6 @@ def split_documents(doc_path, chunk_size, overlap):
         
     return docs
 
-def chunks(container,size):
-    '''
-    Breaks list up into chunks of the size provided. 
-    The last item could have a smaller
-    '''
-    for i in range(0, len(container), size):
-        yield container[i:i + size]
 
 def add_documents(index,docs,vectorstore_path:str,vectorstore_host:str,vectorstore_port:int,embedding_model_gpu_names:List[str],embedding_model_name:str,embedding_model_kwargs:dict,subchunk:int=64):
     '''
@@ -51,13 +44,14 @@ def add_documents(index,docs,vectorstore_path:str,vectorstore_host:str,vectorsto
                                         vectorstore_path=vectorstore_path)
         db = Chroma(client=client,embedding_function= embeddings)
         
-        groups = list(chunks(docs,subchunk))
+        groups = list(break_list_into_chunks(docs,subchunk))
         for group_id in tqdm(range(len(groups))):
             db.add_documents(groups[group_id])
             
-
     except Exception as e:
         print(f'something went wrong. {e}')
+        
+    print(f'Subprocess {index} has completed')
 
 
 def load_documents(embedding_model_name:str,
@@ -95,14 +89,12 @@ Document Extensions:{documents_extentions}
         
     
     #flatten documents 
-    flat_documents = []
-    for docs in documents:
-        flat_documents += docs
+    flat_documents = flatten_list_of_list(documents)
             
     job_size =  int(len(flat_documents)/n_jobs)+1
     
     print(f'Saving documents into vectorstore. {n_jobs} jobs are running with job size, {job_size}')
     
     
-    Parallel(n_jobs=n_jobs)(delayed(add_documents)(rank_id % n_jobs,docs,vectorstore_path,vectorstore_host,vectorstore_port,embedding_model_gpu_names,embedding_model_name,embedding_model_kwargs,index_chunk) for rank_id,docs in tqdm(enumerate(list(chunks(flat_documents,job_size)))))
+    Parallel(n_jobs=n_jobs)(delayed(add_documents)(rank_id % n_jobs,docs,vectorstore_path,vectorstore_host,vectorstore_port,embedding_model_gpu_names,embedding_model_name,embedding_model_kwargs,index_chunk) for rank_id,docs in tqdm(enumerate(list(break_list_into_chunks(flat_documents,job_size)))))
     
