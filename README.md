@@ -5,6 +5,7 @@
 - `scripts` contains python scripts.
 - `lib` contains helper functions.
 - `results` contains results in CSV format
+- `driver.py` is a program that helps execute the various steps from ingesting data to running inference to obtain results.
 
 
 The system used had the following specification 
@@ -38,3 +39,35 @@ With the training prompt binary file  in place execute the following script to m
 ```bash
 python driver.py fine-tune-model
 ```
+
+## Bulding inference prompt
+In order to build prompt for inference execute the command below
+```bash 
+python driver.py build-inference-prompt
+```
+The `inference.*` section of the configuration determines what the command does. The following run modes are supported.
+
+|Run Mode| Action |
+|--------|--------|
+| 0      | Only training data|
+| 1      | Only testing data|
+| 2      | Both training and test data |
+
+## Running inference
+
+
+# Reproducing Results
+Set the following parameters to the values specified at the following stages in order to reproduce the results. Set the following configuration when building prompt and finetuning the model.
+
+|Parameter|Value|
+|---------|-----|
+|`common.vectorstore.k`|50|
+|`common.vectorstore.compression_retriever_top_n`|1|
+|`inference.run_mode`|0|
+
+At inference time use the following
+|Parameter|Value|
+|---------|-----|
+|`common.vectorstore.k`|200|
+|`common.vectorstore.compression_retriever_top_n`|9|
+|`inference.run_mode`|1|

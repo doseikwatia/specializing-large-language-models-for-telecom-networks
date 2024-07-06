@@ -21,7 +21,7 @@ Choices:
 {% endif %}
 """,template_format="jinja2")
     prompt_context = {
-        'context': question.get("explanation", context),
+        'context':  context,
         'question': question['question'],
         'instructions_tag': train_instruction_template,
         'answer_tag': train_response_template,

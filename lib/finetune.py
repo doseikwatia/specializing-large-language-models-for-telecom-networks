@@ -41,7 +41,7 @@ def _get_prompt(index,
         qstn_text = qstn_data['question']
         docs = retriever.invoke(qstn_text)
         context =  (' '.join(list(map(lambda d:d.page_content,docs)))).replace('\n', '. ')
-        prompts  += [get_qa_training_prompt(qstn_data,context), get_mcq_training_prompt(qstn_data,context)]
+        prompts  += [ get_mcq_training_prompt(qstn_data,context)  ]#get_qa_training_prompt(qstn_data,context)
 
     return prompts
 
@@ -178,7 +178,8 @@ def finetune_model(
                    final_model_output_dir:str,
                    num_train_epochs:int = 5,
                    lora_rank:int=16,
-                   learning_rate:float=1.0e-3):
+                   learning_rate:float=1.0e-3,
+                   max_steps:int=1024):
     print(f'''
 prompt_bin_filename     = {prompt_bin_filename}
 llm_name                = {llm_name}
@@ -188,7 +189,9 @@ dataset_dir             = {dataset_dir}
 final_model_output_dir  = {final_model_output_dir}
 num_train_epochs        = {num_train_epochs}
 lora_rank               = {lora_rank}
-learning_rate           = {learning_rate}''')
+learning_rate           = {learning_rate}
+max_steps               = {max_steps}
+''')
      
     tokenizer = AutoTokenizer.from_pretrained(llm_name)
     tokenizer.pad_token = tokenizer.eos_token
@@ -218,11 +221,11 @@ learning_rate           = {learning_rate}''')
     learning_rate=learning_rate,
 
     # Number of training epochs
-    # num_train_epochs=num_train_epochs,
+    num_train_epochs=num_train_epochs,
 
     # Max steps to train for (each step is a batch of data)
     # Overrides num_train_epochs, if not -1
-    # max_steps=1024,
+    max_steps=max_steps,
 
     # Batch size for training
     per_device_train_batch_size=1,

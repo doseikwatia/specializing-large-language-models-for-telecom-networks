@@ -13,8 +13,8 @@ common:
     #host and port are only used for ingest
     host: 'localhost'  
     port: -8000  
-    k : 100
-  compression_retriever_top_n: 2
+    k : 200   #50-training, 200-testing
+  compression_retriever_top_n: 9   #1 for fine tunning , 9 for inference
   trained_model_dir: 'bin/driver-pretrained/'
 
 data-ingest:
@@ -29,17 +29,24 @@ data-ingest:
       - '*.docx'
 
 training:
-  epochs: 3
-  n_jobs: 4
-  lora_rank: 16
-  learning_rate: 0.001
+  epochs: 1
+  max_steps: 1024
+  n_jobs: 6
+  lora_rank: 8
+  learning_rate: 0.0001
   output_dir: 'bin/'
-  prompt_bin_filename: 'bin/pickle/driver_finetuning_datalist.pkl'
+  prompt_bin_filename: 'bin/pickle/training_finetuning_prompt.pkl'
   data_filename: 'data/TeleQnA_training.txt'
   dataset_dir: 'data/driver-finetuning/'
   
- inference:
+inference:
     task: Phi-2
-    data_filename: 'data/TeleQnA_training.txt'
-    outpu
-  
+    run_mode: 1 #0- training only , 1-test only, 2- both train and test
+    n_jobs: 6
+    training_input_filename: 'data/TeleQnA_training.txt'
+    testing_input_filename:  'data/Question_Submission.txt'
+    training_output_filename: 'data/training_result.csv'
+    testing_output_filename:  'data/testing_result.csv'
+    training_prompt_bin_filename: 'bin/pickle/inference_training_prompt.pkl'
+    testing_prompt_bin_filename: 'bin/pickle/inference_testing_prompt.pkl'
+    training_results:  'data/Q_A_ID_training.csv'
