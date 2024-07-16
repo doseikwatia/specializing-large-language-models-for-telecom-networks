@@ -10,6 +10,9 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import gpt4all
 from lib.utilities import get_vectorstore_client,break_list_into_chunks,flatten_list_of_list
+from lib.normic_wrapper import NomicEmbedding
+from lib.constants import ALL_MINILM_L6_V2, NOMIC_EMBED_TEXT_V1, NOMIC_EMBED_TEXT_V1_5, MULTI_QA_MINILM_L6_DOT_V1
+from langchain_huggingface import HuggingFaceEmbeddings
 
 def split_documents(doc_path, chunk_size, overlap):
     '''
@@ -30,14 +33,22 @@ def split_documents(doc_path, chunk_size, overlap):
     return docs
 
 
-def add_documents(index,docs,vectorstore_path:str,vectorstore_host:str,vectorstore_port:int,embedding_model_gpu_names:List[str],embedding_model_name:str,embedding_model_kwargs:dict,subchunk:int=64):
+def add_documents(index,docs,vectorstore_path:str,vectorstore_host:str,vectorstore_port:int,embedding_model_gpu_names:List[str],embedding_model_name:str,embedding_model_kwargs:dict,embedding_dimensionality:int,subchunk:int=64):
     '''
     Adds document to vector store
     '''
     try:
         gpu_index = index % len(embedding_model_gpu_names)
         gpu_device = embedding_model_gpu_names[gpu_index]
-        embeddings = GPT4AllEmbeddings(model_name=embedding_model_name,gpt4all_kwargs =embedding_model_kwargs,device=gpu_device)
+        
+        if embedding_model_name == ALL_MINILM_L6_V2:
+            embeddings = GPT4AllEmbeddings(model_name=embedding_model_name,gpt4all_kwargs =embedding_model_kwargs,device=gpu_device)
+        elif embedding_model_name == NOMIC_EMBED_TEXT_V1 or embedding_model_name == NOMIC_EMBED_TEXT_V1_5:
+            embeddings = NomicEmbedding(model_name=embedding_model_name, device=gpu_device, dimensionality=embedding_dimensionality)
+        elif embedding_model_name == MULTI_QA_MINILM_L6_DOT_V1:
+            embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name,model_kwargs = {'device': f'cuda:{gpu_index}'})
+        else:
+            raise ValueError('invalid embedding name specified')
         
         client = get_vectorstore_client(vectorstore_host=vectorstore_host,
                                         vectorstore_port=vectorstore_port,
@@ -52,10 +63,12 @@ def add_documents(index,docs,vectorstore_path:str,vectorstore_host:str,vectorsto
         print(f'something went wrong. {e}')
         
     print(f'Subprocess {index} has completed')
+    return 0
 
 
 def load_documents(embedding_model_name:str,
                    embedding_model_kwargs:dict,
+                   embedding_dimensionality:int,
                    vectorstore_path:str,
                    vectorstore_host:str,
                    vectorstore_port:int,
@@ -69,11 +82,18 @@ def load_documents(embedding_model_name:str,
     embedding_model_gpu_names   = gpt4all.GPT4All.list_gpus()
 
     print(f'''Loading data into vectorstore with the following details
-Embedding Model:    {embedding_model_name}
-Gpu_Names:          {embedding_model_gpu_names}
-Vectorstore Path:   {vectorstore_path}
-Document Path:      {documents_path}
-Document Extensions:{documents_extentions}
+embedding_model_name            = {embedding_model_name}
+embedding_model_kwargs          = {embedding_model_kwargs}
+embedding_dimensionality        = {embedding_dimensionality}
+vectorstore_path                = {vectorstore_path}
+vectorstore_host                = {vectorstore_host}
+vectorstore_port                = {vectorstore_port}
+textsplitter_chunk_size         = {textsplitter_chunk_size}
+textsplitter_overlap            = {textsplitter_overlap}
+documents_path                  = {documents_path}
+documents_extentions            = {documents_extentions}
+n_jobs                          = {n_jobs}
+index_chunk                     = {index_chunk}
 ''')
     print('Discovering files to be loaded')
     knowledge_files = []
@@ -96,5 +116,5 @@ Document Extensions:{documents_extentions}
     print(f'Saving documents into vectorstore. {n_jobs} jobs are running with job size, {job_size}')
     
     
-    Parallel(n_jobs=n_jobs)(delayed(add_documents)(rank_id % n_jobs,docs,vectorstore_path,vectorstore_host,vectorstore_port,embedding_model_gpu_names,embedding_model_name,embedding_model_kwargs,index_chunk) for rank_id,docs in tqdm(enumerate(list(break_list_into_chunks(flat_documents,job_size)))))
+    Parallel(n_jobs=n_jobs)(delayed(add_documents)(rank_id % n_jobs,docs,vectorstore_path,vectorstore_host,vectorstore_port,embedding_model_gpu_names,embedding_model_name,embedding_model_kwargs,embedding_dimensionality,index_chunk) for rank_id,docs in tqdm(enumerate(list(break_list_into_chunks(flat_documents,job_size)))))
     

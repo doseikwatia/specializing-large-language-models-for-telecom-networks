@@ -45,6 +45,7 @@ def main():
         load_documents(
             embedding_model_name=config['common']['embedding_model']['name'],
             embedding_model_kwargs=config['common']['embedding_model']['kwargs'],
+            embedding_dimensionality=config['common']['embedding_model']['dimensionality'],
             vectorstore_path= config['common']['vectorstore']['path'],
             vectorstore_host= config['common']['vectorstore']['host'],
             vectorstore_port= config['common']['vectorstore']['port'],
@@ -60,6 +61,7 @@ def main():
             reranker_model              = config['common']['reranker_model'],
             embedding_model_name        = config['common']['embedding_model']['name'],
             embedding_model_kwargs      = config['common']['embedding_model']['kwargs'],
+            embedding_dimensionality=config['common']['embedding_model']['dimensionality'],
             compression_retriever_top_n = config['common']['compression_retriever_top_n'],
             vectorstore_host            = config['common']['vectorstore']['host'],
             vectorstore_port            = config['common']['vectorstore']['port'],
@@ -92,6 +94,7 @@ def main():
             testing_input_filename       = config['inference']['testing_input_filename'],
             embedding_model_name         = config['common']['embedding_model']['name'],
             embedding_model_kwargs       = config['common']['embedding_model']['kwargs'],
+            embedding_dimensionality     =config['common']['embedding_model']['dimensionality'],
             vectorstore_path             = config['common']['vectorstore']['path'],
             vectorstore_host             = config['common']['vectorstore']['host'],
             vectorstore_port             = config['common']['vectorstore']['port'],

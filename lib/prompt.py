@@ -18,6 +18,8 @@ Choices:
 {% endfor %}
 {{ answer_tag }}{% if show_answers %}
 {{ answer }}
+{{ explanation_tag }}
+{{explanation}}
 {% endif %}
 """,template_format="jinja2")
     prompt_context = {
@@ -27,6 +29,8 @@ Choices:
         'answer_tag': train_response_template,
         'show_answers': show_answers,
         'answer': question.get("answer", ''),
+        'explanation': question.get('explanation',''),
+        'explanation_tag':train_explanation_template,
         'options':  list(filter(lambda item: item[0].startswith("option")  ,question.items()))
     }
     answer = question.get("answer", None)

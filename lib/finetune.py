@@ -20,6 +20,7 @@ def _get_prompt(index,
                reranker_model,
                embedding_model_name,
                embedding_model_kwargs,
+               embedding_dimensionality,
                compression_retriever_top_n,
                vectorstore_path,
                vectorstore_host,
@@ -30,16 +31,38 @@ def _get_prompt(index,
         reranker_model=reranker_model,
         embedding_model_name=embedding_model_name,
         embedding_model_kwargs=embedding_model_kwargs,
+        embedding_dimensionality = embedding_dimensionality,
         compression_retriever_top_n = compression_retriever_top_n,
         vectorstore_path=vectorstore_path,
         vectorstore_host=vectorstore_host,
         vectorstore_port=vectorstore_port,
         vectorstore_k=vectorstore_k
         )
+    backup_retriever = get_retriever(
+        index,
+        reranker_model,
+        embedding_model_name,
+        embedding_model_kwargs,
+        embedding_dimensionality,
+        compression_retriever_top_n,
+        vectorstore_host,
+        vectorstore_port,
+        vectorstore_path,
+        int(vectorstore_k/5),
+        False
+    )
     prompts = []
     for qstn_data in tqdm(qstn_datas):
         qstn_text = qstn_data['question']
-        docs = retriever.invoke(qstn_text)
+        
+        try:
+            docs = retriever.invoke(qstn_text)
+        except KeyboardInterrupt:
+            break
+        except:
+            print(f'something went wrong. question: {qstn_text}')
+            docs = backup_retriever.invoke(qstn_text)
+        
         context =  (' '.join(list(map(lambda d:d.page_content,docs)))).replace('\n', '. ')
         prompts  += [ get_mcq_training_prompt(qstn_data,context)  ]#get_qa_training_prompt(qstn_data,context)
 
@@ -83,6 +106,7 @@ def build_finetine_prompts(
                    reranker_model,
                    embedding_model_name:str,
                    embedding_model_kwargs:dict,
+                   embedding_dimensionality:int,
                    compression_retriever_top_n:int,
                    vectorstore_host:str,
                    vectorstore_port:int,
@@ -97,6 +121,7 @@ def build_finetine_prompts(
 reranker_model              = {reranker_model}
 embedding_model_name        = {embedding_model_name}
 embedding_model_kwargs      = {embedding_model_kwargs}
+embedding_dimensionality    = {embedding_dimensionality}
 compression_retriever_top_n = {compression_retriever_top_n}
 vectorstore_host            = {vectorstore_host}
 vectorstore_port            = {vectorstore_port}
@@ -114,6 +139,7 @@ n_jobs                      = {n_jobs}''')
                reranker_model,
                embedding_model_name,
                embedding_model_kwargs,
+               embedding_dimensionality,
                compression_retriever_top_n,
                vectorstore_path,
                vectorstore_host,

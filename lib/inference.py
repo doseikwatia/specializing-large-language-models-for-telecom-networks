@@ -16,6 +16,7 @@ def _get_question_prompt(rank_id,
                         reranker_model,
                         embedding_model_name,
                         embedding_model_kwargs,
+                        embedding_dimensionality,
                         compression_retriever_top_n,
                         vectorstore_host,
                         vectorstore_port,
@@ -23,27 +24,53 @@ def _get_question_prompt(rank_id,
                         vectorstore_k
         ): # in tqdm(questions.items()):
     results = []
+
     retriever = get_retriever(
         rank_id,
         reranker_model,
         embedding_model_name,
         embedding_model_kwargs,
+        embedding_dimensionality,
         compression_retriever_top_n,
         vectorstore_host,
         vectorstore_port,
         vectorstore_path,
         vectorstore_k
     )
+    backup_retriever = get_retriever(
+        rank_id,
+        reranker_model,
+        embedding_model_name,
+        embedding_model_kwargs,
+        embedding_dimensionality,
+        compression_retriever_top_n,
+        vectorstore_host,
+        vectorstore_port,
+        vectorstore_path,
+        int(vectorstore_k/5),
+        False
+    )
     for qstn_id,qstn_data in tqdm(qstn):
         qstn_id=qstn_id.split(' ')[1].strip()
         qstn_text = qstn_data['question']
+        
         #searching through datastore for context
-        docs = retriever.invoke(qstn_text)
+        try:
+            docs = retriever.invoke(qstn_text)
+        except KeyboardInterrupt:
+            break
+        except:
+            print(f'something went wrong. question: {qstn_text}')
+            docs = backup_retriever.invoke(qstn_text)
+            
         context =  (' '.join(list(map(lambda d:d.page_content,docs)))).replace('\n', '. ')
         infer_data = get_mcq_inference_prompt(qstn_data, context)
         prompt = infer_data['prompt']
         
         results.append((qstn_id,prompt))
+        
+        if len(results) % 10 == 0 :
+            print(f'rank: {rank_id}\n{prompt}')
         
     return results
 
@@ -51,6 +78,7 @@ def _generate_prompts(qst_filename,
                         reranker_model,
                         embedding_model_name,
                         embedding_model_kwargs,
+                        embedding_dimensionality,
                         compression_retriever_top_n,
                         vectorstore_host,
                         vectorstore_port,
@@ -64,7 +92,7 @@ def _generate_prompts(qst_filename,
     else:
         sampled_questions = random.sample(list(questions.items()),sample_size)
     
-    sampled_questions.reverse()
+    # sampled_questions.reverse()
     chunk_size = int(len(sampled_questions)/n_jobs) + 1
     print(f'chunk_size: {chunk_size}')
     pprompts = Parallel(n_jobs=n_jobs)(delayed(_get_question_prompt)(rank_id%n_jobs , 
@@ -72,6 +100,7 @@ def _generate_prompts(qst_filename,
         reranker_model,
         embedding_model_name,
         embedding_model_kwargs,
+        embedding_dimensionality,
         compression_retriever_top_n,
         vectorstore_host,
         vectorstore_port,
@@ -124,6 +153,7 @@ def build_inference_prompt(
     reranker_model: str,
     embedding_model_name: str,
     embedding_model_kwargs: dict,
+    embedding_dimensionality: int,
     compression_retriever_top_n: int,
     vectorstore_host: str,
     vectorstore_port: int,
@@ -140,6 +170,7 @@ testing_input_filename      = {testing_input_filename}
 reranker_model              = {reranker_model}
 embedding_model_name        = {embedding_model_name}
 embedding_model_kwargs      = {embedding_model_kwargs}
+embedding_dimensionality    = {embedding_dimensionality}
 compression_retriever_top_n = {compression_retriever_top_n}
 vectorstore_host            = {vectorstore_host}
 vectorstore_port            = {vectorstore_port}
@@ -166,6 +197,7 @@ n_jobs                      = {n_jobs}
             reranker_model,
             embedding_model_name,
             embedding_model_kwargs,
+            embedding_dimensionality,
             compression_retriever_top_n,
             vectorstore_host,
             vectorstore_port,

@@ -4,24 +4,27 @@ common:
     name: 'microsoft/phi-2'
     context_length: 2048
   embedding_model: 
+    # name: 'nomic-embed-text-v1.5.f16.gguf'      
+    # name: multi-qa-MiniLM-L6-dot-v1
     name: 'all-MiniLM-L6-v2.gguf2.f16.gguf'
+    dimensionality: 512
     kwargs: 
       allow_download: True
   reranker_model: 'BAAI/bge-reranker-base'
   vectorstore:
-    path: 'data/vectorstore/chromadb_512_32_all-MiniLM-L6-v2'
+    path: 'data/vectorstore/chromadb_512_32'
     #host and port are only used for ingest
     host: 'localhost'  
-    port: -8000  
-    k : 200   #50-training, 200-testing
-  compression_retriever_top_n: 9   #1 for fine tunning , 9 for inference
-  trained_model_dir: 'bin/driver-pretrained/'
+    port: 8000  
+    k : 500   #50-training, 200-testing
+  compression_retriever_top_n: 50   #1 for fine tunning , 7 for inference
+  trained_model_dir: 'bin/driver-384_32_all-MiniLM-L6-v2/'
 
 data-ingest:
   n_jobs: 24
-  index_chunk: 64
+  index_chunk: 256
   textsplitter:
-    chunk_size: 512
+    chunk_size: 384
     overlap: 32
   documents: 
     path: 'data/rel18/'
@@ -29,11 +32,11 @@ data-ingest:
       - '*.docx'
 
 training:
-  epochs: 1
-  max_steps: 1024
-  n_jobs: 6
-  lora_rank: 8
-  learning_rate: 0.0001
+  epochs: 10
+  max_steps: -1
+  n_jobs: 4
+  lora_rank: 16
+  learning_rate: 0.001
   output_dir: 'bin/'
   prompt_bin_filename: 'bin/pickle/training_finetuning_prompt.pkl'
   data_filename: 'data/TeleQnA_training.txt'
@@ -42,7 +45,7 @@ training:
 inference:
     task: Phi-2
     run_mode: 1 #0- training only , 1-test only, 2- both train and test
-    n_jobs: 6
+    n_jobs: 4
     training_input_filename: 'data/TeleQnA_training.txt'
     testing_input_filename:  'data/Question_Submission.txt'
     training_output_filename: 'data/training_result.csv'
