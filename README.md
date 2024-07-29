@@ -95,7 +95,7 @@ Set the following parameters to the values specified at the following stages in 
 At inference time use the following
 |Parameter|Value|
 |---------|-----|
-|`common.vectorstore.compression_retriever_top_n`|`7`|
+|`common.vectorstore.compression_retriever_top_n`|`5`|
 |`inference.run_mode`|`1`|
 
 # Summary

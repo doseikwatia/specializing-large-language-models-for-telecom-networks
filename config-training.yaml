@@ -15,7 +15,7 @@ common:
     host: 'localhost'  
     port: 8000  
     k : 200   #50-training, 200-testing
-  compression_retriever_top_n: 1   #1 for fine tunning , 7 for inference
+  compression_retriever_top_n: 1   #1 for fine tunning , 5 for inference
   trained_model_dir: 'bin/driver-all-MiniLM-L6-v2'
 
 data-ingest:
