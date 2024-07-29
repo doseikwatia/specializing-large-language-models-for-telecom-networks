@@ -47,7 +47,7 @@ def _get_question_prompt(rank_id,
         vectorstore_host,
         vectorstore_port,
         vectorstore_path,
-        int(vectorstore_k/5),
+        int(vectorstore_k/100),
         False
     )
     for qstn_id,qstn_data in tqdm(qstn):
@@ -69,7 +69,7 @@ def _get_question_prompt(rank_id,
         
         results.append((qstn_id,prompt))
         
-        if len(results) % 10 == 0 :
+        if len(results) % 10 == 1:
             print(f'rank: {rank_id}\n{prompt}')
         
     return results
@@ -120,22 +120,34 @@ def _answer_questions(llm_name,finetunned_model_path,prompts, max_new_tokens=4,r
     answer_model_name = llm_name
     tokenizer = AutoTokenizer.from_pretrained(answer_model_name)
     tokenizer.pad_token = tokenizer.eos_token 
-    answer_model = AutoModelForCausalLM.from_pretrained(finetunned_model_path,device_map="auto",)
+    # answer_model = AutoModelForCausalLM.from_pretrained(finetunned_model_path,device_map="auto",)
     
     answer_generator = transformers.pipeline(
         "text-generation",
-        model=answer_model,
+        model=finetunned_model_path,
         tokenizer=tokenizer,
         torch_dtype=torch.bfloat16,
-        device_map="auto"
+        device_map="auto",
     )
 
     num_prompts = len(prompts)
+    # ##falcon only
+    # for i in tqdm(range(num_prompts)):
+    #     prompt = prompts[i][1]
+    #     prompt = prompt.replace('### Instructions:','User:')
+    #     # prompt = prompt.replace('Context:','<|user|>\nContext:')
+    #     prompt = prompt.replace('### Answer:','Assistant:').strip()
+    #     prompts[i] = (prompts[i][0],prompt)
+    #     if i < 3:
+    #         print(prompts[i][1])
+    # ##
+    
     for i in tqdm(range(0,num_prompts,batch_size)):
         current_prompts=list(map(lambda e:e[1],prompts[i:i+batch_size]))
         current_qstn_ids=list(map(lambda e:e[0],prompts[i:i+batch_size]))
         responses = answer_generator(current_prompts,max_new_tokens=max_new_tokens, return_full_text=return_full_text)
         current_ans_ids =list(map(lambda r:r[0]['generated_text'].split(':')[0][-1:].strip(),responses))
+        print(current_ans_ids)
         solutions += list(zip(current_qstn_ids,current_ans_ids))
         
     return solutions    

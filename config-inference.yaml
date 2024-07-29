@@ -4,15 +4,10 @@ common:
     name: 'microsoft/phi-2'
     context_length: 2048
   embedding_model: 
-    # name: 'nomic-embed-text-v1.5.f16.gguf'      
-    # name: multi-qa-MiniLM-L6-dot-v1
-    # name: 'dunzhang/stella_en_400M_v5'
     name: 'all-MiniLM-L6-v2.gguf2.f16.gguf'
     dimensionality: 384
     kwargs: 
-      # normalize_embeddings: True                  # Uncomment when using  multi-qa-MiniLM-L6-dot-v1
       allow_download: True                          # Uncomment when using  all-MiniLM-L6-v2.gguf2.f16.gguf
-      # prompt_name:s2p_query #for only retrieval   # Uncomment when using  nomic-embed-text-v1.5.f16.gguf
   reranker_model: 'BAAI/bge-reranker-base'
   vectorstore:
     path:
@@ -20,8 +15,8 @@ common:
     host: 'localhost'  
     port: 8000  
     k : 200   #50-training, 200-testing
-  compression_retriever_top_n: 7   #1 for fine tunning , 7 for inference    3 ft
-  trained_model_dir: 'bin/driver-multi-qa-MiniLM-L6-dot-v1'
+  compression_retriever_top_n: 7   #1 for fine tunning , 7 for inference
+  trained_model_dir: 'bin/driver-all-MiniLM-L6-v2'
 
 data-ingest:
   n_jobs: 8

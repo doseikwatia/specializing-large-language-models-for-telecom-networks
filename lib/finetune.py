@@ -48,7 +48,7 @@ def _get_prompt(index,
         vectorstore_host,
         vectorstore_port,
         vectorstore_path,
-        int(vectorstore_k/5),
+        int(vectorstore_k/100),
         False
     )
     prompts = []
@@ -65,7 +65,11 @@ def _get_prompt(index,
         
         context =  (' '.join(list(map(lambda d:d.page_content,docs)))).replace('\n', '. ')
         prompts  += [ get_mcq_training_prompt(qstn_data,context)  ]#get_qa_training_prompt(qstn_data,context)
-
+        
+        if len(prompts) % 10 == 1:
+            p_text = prompts[-1]['prompt']
+            print(f'rank: {index}\n{p_text}')
+            
     return prompts
 
 

@@ -9,10 +9,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 from joblib import Parallel, delayed
 import gpt4all
-from lib.utilities import get_vectorstore_client,break_list_into_chunks,flatten_list_of_list
+from lib.utilities import get_embeddings, get_vectorstore_client,break_list_into_chunks,flatten_list_of_list
 from lib.normic_wrapper import NomicEmbedding
-from lib.constants import ALL_MINILM_L6_V2, NOMIC_EMBED_TEXT_V1, NOMIC_EMBED_TEXT_V1_5, MULTI_QA_MINILM_L6_DOT_V1
+from lib.constants import ALL_MINILM_L6_V2, NOMIC_EMBED_TEXT_V1, NOMIC_EMBED_TEXT_V1_5, MULTI_QA_MINILM_L6_DOT_V1, STELLA_EN_400M_V5
 from langchain_huggingface import HuggingFaceEmbeddings
+import time
 
 def split_documents(doc_path, chunk_size, overlap):
     '''
@@ -40,15 +41,24 @@ def add_documents(index,docs,vectorstore_path:str,vectorstore_host:str,vectorsto
     try:
         gpu_index = index % len(embedding_model_gpu_names)
         gpu_device = embedding_model_gpu_names[gpu_index]
+        cuda_device =  f'cuda:{gpu_index}'
         
-        if embedding_model_name == ALL_MINILM_L6_V2:
-            embeddings = GPT4AllEmbeddings(model_name=embedding_model_name,gpt4all_kwargs =embedding_model_kwargs,device=gpu_device)
-        elif embedding_model_name == NOMIC_EMBED_TEXT_V1 or embedding_model_name == NOMIC_EMBED_TEXT_V1_5:
-            embeddings = NomicEmbedding(model_name=embedding_model_name, device=gpu_device, dimensionality=embedding_dimensionality)
-        elif embedding_model_name == MULTI_QA_MINILM_L6_DOT_V1:
-            embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name,model_kwargs = {'device': f'cuda:{gpu_index}'})
-        else:
-            raise ValueError('invalid embedding name specified')
+        embeddings = get_embeddings(
+            embedding_model_name,
+            embedding_model_kwargs,
+            embedding_dimensionality,
+            gpu_device,
+            cuda_device)
+        # if embedding_model_name == ALL_MINILM_L6_V2:
+        #     embeddings = GPT4AllEmbeddings(model_name=embedding_model_name,gpt4all_kwargs =embedding_model_kwargs,device=gpu_device)
+        # elif embedding_model_name == NOMIC_EMBED_TEXT_V1 or embedding_model_name == NOMIC_EMBED_TEXT_V1_5:
+        #     embeddings = NomicEmbedding(model_name=embedding_model_name, device=gpu_device, dimensionality=embedding_dimensionality)
+        # elif embedding_model_name == MULTI_QA_MINILM_L6_DOT_V1:
+        #     embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name,model_kwargs = {'device':cuda_device})
+        # elif embedding_model_name == STELLA_EN_400M_V5:
+        #     embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name,encode_kwargs=embedding_model_kwargs,model_kwargs = {'device':cuda_device })
+        # else:
+        #     raise ValueError('invalid embedding name specified')
         
         client = get_vectorstore_client(vectorstore_host=vectorstore_host,
                                         vectorstore_port=vectorstore_port,
@@ -56,6 +66,8 @@ def add_documents(index,docs,vectorstore_path:str,vectorstore_host:str,vectorsto
         db = Chroma(client=client,embedding_function= embeddings)
         
         groups = list(break_list_into_chunks(docs,subchunk))
+        print(f'sleeping for {index} seconds')
+        time.sleep(index)
         for group_id in tqdm(range(len(groups))):
             db.add_documents(groups[group_id])
             

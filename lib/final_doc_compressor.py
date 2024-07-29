@@ -10,10 +10,10 @@ class FinalDocumentCompressor(BaseDocumentCompressor):
     prompt: PromptTemplate
     max_word_count:int
     
-    def __init__(self,n_predict = 256,seed = 1):
-        llm = Llamafile(n_predict=n_predict, seed=seed)
+    def __init__(self,n_predict = 512,seed = 1):
+        llm = Llamafile(n_predict=n_predict, seed=seed,temperature=0.0)
         prompt =PromptTemplate.from_template('''<|system|>
-Given the context, answer the following question succinctly. Please provide a response that is clear and concise, not exceeding {max_word_count} words.</s>
+You are a telecommunication engineering expert. Given the context, explain the correct answer for the following question succinctly. Please provide a response that is clear and concise, not exceeding {max_word_count} words.</s>
 <|user|>
 Context:
 {context}
@@ -32,4 +32,5 @@ Question:
             'max_word_count': self.max_word_count
         })
         page_content = self.llm.invoke(llm_input)
+        page_content = page_content.replace('</s>','').replace('<|system|>','').replace('<|ed|>','').replace('<|eot_id|>','').replace('<|assistant|>','')
         return [Document(page_content=page_content)]
